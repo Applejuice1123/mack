@@ -1,0 +1,12 @@
+[
+  {
+    "id": "sanity_capital",
+    "prompt": "Capital of Japan — reply with city name only.",
+    "must_contain": ["tokyo"]
+  },
+  {
+    "id": "sanity_math",
+    "prompt": "Compute 144 divided by 12. Reply with the integer only.",
+    "must_contain": ["12"]
+  }
+]

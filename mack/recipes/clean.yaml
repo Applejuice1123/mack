@@ -1,0 +1,19 @@
+name: clean
+description: Clean up transcripts (filler words, false starts, punctuation) and list action items; written to a .clean.md file, never over the original.
+glob: "**/*.txt,**/*.md"
+max_output_tokens: 3000
+instruction: |
+  Clean up this transcript. Remove filler words (um, uh, like, you know), false starts and stutters, and fix punctuation.
+  Keep every substantive sentence and its meaning. Do not summarize or shorten the content.
+  Then list the action items, each with the exact words from the transcript that state it.
+schema:
+  type: object
+  properties:
+    cleaned: {type: string, description: "the full cleaned transcript"}
+    action_items: {type: array, maxItems: 10, x-quote: true}
+checks:
+  - {kind: retention, field: cleaned, min: 0.85}
+apply:
+  kind: sidecar
+  suffix: .clean.md
+  template: clean

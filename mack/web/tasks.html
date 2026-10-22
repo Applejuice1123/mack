@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mack Tasks</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --panel: #ffffff; --ink: #1c1b19; --muted: #6f6c66; --line: #e3e0d8;
+    --accent: #c2410c; --accent-soft: #fdebdf; --ok: #15803d; --warn: #b45309; --bad: #b91c1c;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #141312; --panel: #1d1c1a; --ink: #ece9e2; --muted: #9a968d; --line: #2e2c29;
+            --accent: #fb923c; --accent-soft: #3a2415; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--ink); font: 14px/1.5 -apple-system, "Helvetica Neue", sans-serif;
+         display: grid; grid-template-columns: 360px minmax(0, 1fr); }
+  aside { border-right: 1px solid var(--line); background: var(--panel); height: 100vh; overflow-y: auto; padding: 18px; }
+  main { height: 100vh; overflow-y: auto; padding: 22px 28px; }
+  h1 { font-size: 17px; margin: 0 0 2px; } h1 span { color: var(--accent); }
+  .sub { color: var(--muted); font-size: 12.5px; margin-bottom: 16px; }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 20px 0 8px; }
+  textarea, select, input { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; }
+  textarea { width: 100%; height: 110px; resize: vertical; }
+  textarea:focus, select:focus, input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .row { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+  .row > * { flex: 1; min-width: 0; }
+  label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 3px; }
+  button { font: inherit; font-weight: 600; border-radius: 9px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 7px 12px; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; width: 100%; margin-top: 10px; padding: 9px; }
+  button:disabled { opacity: .45; cursor: default; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .err { color: var(--bad); font-size: 12.5px; margin-top: 6px; }
+  .task { padding: 10px; border-radius: 10px; cursor: pointer; border: 1px solid transparent; margin-bottom: 6px; }
+  .task:hover { background: var(--bg); }
+  .task.sel { border-color: var(--accent); background: var(--accent-soft); }
+  .task .t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .task .m { color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; }
+  .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin: 6px 0 3px; }
+  .bar i { display: block; height: 100%; background: var(--accent); transition: width .4s; }
+  .pill { font: 600 11px var(--mono); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .pill.running { color: var(--accent); border-color: var(--accent); }
+  .pill.done { color: var(--ok); border-color: var(--ok); }
+  .pill.failed, .pill.cancelled { color: var(--bad); border-color: var(--bad); }
+  .pill.paused { color: var(--warn); border-color: var(--warn); }
+  .head { display: flex; align-items: flex-start; gap: 12px; }
+  .head h3 { margin: 0; font-size: 20px; flex: 1; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0 4px; }
+  .stats { display: flex; gap: 22px; flex-wrap: wrap; color: var(--muted); font-size: 12.5px; margin-top: 8px; }
+  .stats b { color: var(--ink); font: 600 13px var(--mono); }
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 22px; margin-top: 16px; }
+  .live { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; white-space: pre-wrap;
+          overflow-wrap: anywhere; font-size: 13.5px; min-height: 300px; max-height: 62vh; overflow-y: auto; }
+  .live.code { font: 12.5px/1.55 var(--mono); }
+  .units { list-style: none; padding: 0; margin: 0; }
+  .units li { padding: 6px 0; border-top: 1px solid var(--line); font-size: 13px; }
+  .units li .n { color: var(--muted); font-size: 11.5px; }
+  .units li.done::before { content: "✓ "; color: var(--ok); }
+  .units li.writing::before { content: "▸ "; color: var(--accent); }
+  .units li.pending::before { content: "· "; color: var(--muted); }
+  .log { font: 11.5px/1.6 var(--mono); color: var(--muted); white-space: pre-wrap; }
+  .empty { color: var(--muted); margin-top: 18vh; text-align: center; }
+  a { color: var(--accent); }
+  @media (max-width: 900px) { body { grid-template-columns: 1fr; } aside, main { height: auto; } .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<aside>
+  <h1>Mack<span>.ai</span></h1>
+  <div class="sub">Give it something big. It works through it slowly in the background, without hogging your Mac.</div>
+
+  <h2>New task</h2>
+  <textarea id="prompt" placeholder="e.g. Write a 15-page report on the history and future of nuclear fusion, for a general audience.&#10;&#10;or: Build a command-line habit tracker in Python with SQLite storage and tests."></textarea>
+  <div class="row">
+    <div><label for="kind">Kind</label>
+      <select id="kind"><option value="auto">Decide for me</option><option value="report">Report / document</option><option value="code">Codebase</option></select></div>
+    <div><label for="pages">Pages (reports)</label><input id="pages" type="number" min="1" max="60" value="8"></div>
+  </div>
+  <div class="row">
+    <div><label for="pace">Pace</label>
+      <select id="pace">
+        <option value="auto" selected>Auto: fast when you're away, gentle when you're busy</option>
+        <option value="gentle">Gentle: barely noticeable</option>
+        <option value="balanced">Balanced</option>
+        <option value="steady">Steady: faster, still capped</option>
+        <option value="full">Full speed</option>
+      </select></div>
+  </div>
+  <div class="hint" id="estimate"></div>
+  <button class="primary" id="start">Start task</button>
+  <div class="err" id="err"></div>
+
+  <h2>Tasks</h2>
+  <div id="list"><div class="hint">No tasks yet.</div></div>
+  <div class="hint" style="margin-top:16px"><a href="/chat">Chat</a> is still available.</div>
+</aside>
+<main id="detail"><div class="empty">Start a task, or pick one on the left.</div></main>
+<script>
+const $ = id => document.getElementById(id);
+let selected = localStorage.getItem("mack.task") || null, paces = {}, lastLive = "";
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const dur = s => s < 90 ? `${Math.round(s)} s` : s < 5400 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} h`;
+
+function estimate() {
+  const pace = paces[$("pace").value], kind = $("kind").value, pages = +$("pages").value || 1;
+  const code = kind === "code" || (kind === "auto" && /\b(code ?base|app|script|library|api|cli|program|website|implement|python|javascript)\b/i.test($("prompt").value));
+  // drafting + review + summary passes, in tokens
+  const tokens = code ? 9 * 1400 : pages * 500 * 1.35 * 1.9;
+  const tps = pace && pace.tps ? pace.tps : 30;
+  if ($("pace").value === "auto") {
+    const slow = paces.gentle && paces.gentle.tps ? paces.gentle.tps : 3;
+    $("estimate").textContent = `Roughly ${dur(tokens / 30)} if you leave the Mac alone, up to ${dur(tokens / slow)} while you're busy on it.`;
+    return;
+  }
+  $("estimate").textContent = `About ${pace && pace.tps ? pace.tps.toFixed(1) + " tokens/s" : "full speed"}; roughly ${dur(tokens / tps)} of work${code ? " for a small codebase" : ` for ${pages} pages`}.`;
+}
+["pace", "kind", "pages", "prompt"].forEach(id => $(id).addEventListener("input", estimate));
+
+$("start").onclick = async () => {
+  $("err").textContent = "";
+  const body = { prompt: $("prompt").value, kind: $("kind").value, pages: +$("pages").value || 5, pace: $("pace").value };
+  const r = await fetch("/api/tasks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const j = await r.json();
+  if (!r.ok) { $("err").textContent = j.error || "Could not start the task."; return; }
+  $("prompt").value = ""; selected = j.id; localStorage.setItem("mack.task", selected); refresh();
+};
+
+async function act(action) {
+  await fetch(`/api/tasks/${selected}/${action}`, { method: "POST" }); refresh();
+}
+
+function listItem(t) {
+  const meta = t.status === "running" ? `${t.stage}${t.current ? ": " + t.current : ""}` : t.status;
+  return `<div class="task ${t.id === selected ? "sel" : ""}" data-id="${t.id}">
+    <div class="t">${esc(t.title)}</div>
+    <div class="bar"><i style="width:${Math.round(t.progress * 100)}%"></i></div>
+    <div class="m"><span>${esc(meta).slice(0, 48)}</span><span>${Math.round(t.progress * 100)}%</span></div></div>`;
+}
+
+async function refresh() {
+  let data;
+  try { data = await (await fetch("/api/tasks")).json(); } catch (e) { $("list").innerHTML = '<div class="err">Mack\'s engine is not reachable.</div>'; return; }
+  $("list").innerHTML = data.tasks.length ? data.tasks.map(listItem).join("") : '<div class="hint">No tasks yet.</div>';
+  document.querySelectorAll(".task").forEach(el => el.onclick = () => { selected = el.dataset.id; localStorage.setItem("mack.task", selected); lastLive = ""; refresh(); });
+  if (!data.engine_ready) $("list").insertAdjacentHTML("afterbegin", '<div class="hint">The model is loading…</div>');
+  if (!selected || !data.tasks.find(t => t.id === selected)) { if (!data.tasks.length) return; selected = data.tasks[0].id; }
+  const t = await (await fetch(`/api/tasks/${selected}`)).json();
+  if (t.error && !t.id) return;
+  const running = t.status === "running" || t.status === "queued";
+  const elapsed = t.started ? ((t.finished || Date.now() / 1000) - t.started) : 0;
+  if (t.kind === "batch") { renderBatch(t, elapsed); return; }
+  const units = t.units.map(u => `<li class="${u.status}">${esc(u.title)}${u.words ? ` <span class="n">${u.words} words</span>` : ""}${u.notes.length ? `<div class="n">${esc(u.notes.join("; "))}</div>` : ""}</li>`).join("");
+  const scroller = document.querySelector(".live"), atBottom = !scroller || scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 40;
+  $("detail").innerHTML = `
+    <div class="head"><h3>${esc(t.title)}</h3><span class="pill ${t.status}">${t.status}</span></div>
+    <div class="hint">${esc(t.prompt)}</div>
+    <div class="bar" style="height:8px;margin-top:12px"><i style="width:${Math.round(t.progress * 100)}%"></i></div>
+    <div class="stats">
+      <span>Stage <b>${esc(t.stage)}</b></span>
+      <span>Units <b>${t.units_done}/${t.units_total || "?"}</b></span>
+      <span>Rate <b>${t.tps || "–"} tok/s</b></span>
+      <span>Tokens <b>${t.tokens}</b></span>
+      <span>Elapsed <b>${elapsed ? dur(elapsed) : "–"}</b></span>
+      <span>Pace <b>${esc(t.pace)}</b></span>
+    </div>
+    <div class="actions">
+      ${t.status === "running" || t.status === "queued" ? '<button onclick="act(\'pause\')">Pause</button>' : ""}
+      ${t.status === "paused" ? '<button onclick="act(\'resume\')">Resume</button>' : ""}
+      ${["running", "queued", "paused"].includes(t.status) ? '<button onclick="act(\'cancel\')">Cancel</button>' : ""}
+      <button onclick="act('open')" ${t.files.length ? "" : "disabled"}>Open folder</button>
+    </div>
+    ${t.error ? `<div class="err">${esc(t.error)}</div>` : ""}
+    <div class="grid">
+      <div><h2>${running ? "Writing now" : t.status === "done" ? "Finished" : "Last output"}</h2>
+        <div class="live ${t.kind === "code" ? "code" : ""}">${esc(t.live || (t.status === "done" ? "Done. Open the folder to see the result." : "Waiting to start…"))}</div></div>
+      <div><h2>${t.kind === "code" ? "Files" : "Sections"}</h2><ul class="units">${units || '<li class="pending">Planning…</li>'}</ul>
+        <h2>Output</h2><div class="log">${esc(t.out_dir)}\n${t.files.map(esc).join("\n")}</div>
+        <h2>Log</h2><div class="log">${esc(t.log.join("\n"))}</div></div>
+    </div>`;
+  const live = document.querySelector(".live");
+  if (live && atBottom) live.scrollTop = live.scrollHeight;
+}
+
+function renderBatch(t, elapsed) {
+  const c = t.counts || {};
+  const rows = (t.items || []).map(i => `<tr><td>${esc(i.path.split("/").pop())}</td><td><span class="pill ${i.status === "done" ? "done" : i.status === "flagged" ? "paused" : i.status === "failed" ? "failed" : ""}">${i.status}</span></td>
+    <td class="log">${esc(i.output ? JSON.stringify(i.output) : (i.reason || ""))}${i.flags.length ? " · flags: " + esc(i.flags.join(", ")) : ""}</td></tr>`).join("");
+  $("detail").innerHTML = `
+    <div class="head"><h3>${esc(t.title)}</h3><span class="pill ${t.status}">${t.status}</span></div>
+    <div class="hint">${esc(t.recipe ? "recipe " + t.recipe : "custom instruction")} · ${esc(t.output_path)}</div>
+    <div class="bar" style="height:8px;margin-top:12px"><i style="width:${Math.round(t.progress * 100)}%"></i></div>
+    <div class="stats">
+      <span>Items <b>${t.units_done}/${t.units_total}</b></span>
+      <span>Done <b>${c.done || 0}</b></span><span>Flagged <b>${c.flagged || 0}</b></span>
+      <span>Failed <b>${c.failed || 0}</b></span><span>Skipped <b>${c.skipped || 0}</b></span>
+      <span>Rate <b>${t.stats && t.stats.recent_tps ? t.stats.recent_tps.toFixed(1) : "–"} tok/s</b></span>
+      <span>Pace <b>${esc(t.pace)}</b></span><span>Elapsed <b>${elapsed ? dur(elapsed) : "–"}</b></span>
+    </div>
+    ${t.pace_note ? `<div class="hint">${esc(t.pace_note)}</div>` : ""}
+    <div class="actions">
+      ${t.status === "running" || t.status === "queued" ? '<button onclick="act(\'pause\')">Pause</button>' : ""}
+      ${t.status === "paused" ? '<button onclick="act(\'resume\')">Resume</button>' : ""}
+      ${["running", "queued", "paused"].includes(t.status) ? '<button onclick="act(\'cancel\')">Cancel</button>' : ""}
+    </div>
+    ${t.error ? `<div class="err">${esc(t.error)}</div>` : ""}
+    <div class="hint" style="margin-top:10px">Review in the terminal with <code>mack review ${esc(t.id)}</code>, then <code>mack apply ${esc(t.id)}</code> (undo with <code>mack undo</code>).</div>
+    <h2>Now</h2><div class="live">${esc(t.live || (t.status === "done" ? "Finished." : "Waiting…"))}</div>
+    <h2>Latest items</h2><table style="width:100%;border-collapse:collapse;font-size:13px">${rows || '<tr><td class="hint">Nothing finished yet.</td></tr>'}</table>
+    <h2>Log</h2><div class="log">${esc(t.log.join("\n"))}</div>`;
+}
+
+fetch("/api/paces").then(r => r.json()).then(p => { paces = p; estimate(); }).catch(() => {});
+refresh(); setInterval(refresh, 3000);
+</script>
+</body>
+</html>

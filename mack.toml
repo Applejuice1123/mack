@@ -1,0 +1,69 @@
+# Mack.ai configuration. Every key is optional; defaults live in mack/config.py.
+
+[model]
+main = "mlx-community/Qwen3.5-4B-4bit"      # switch to mlx-community/Qwen3.5-9B-4bit once ~7 GB of disk is free
+draft = "mlx-community/Qwen3.5-0.8B-4bit"   # draft model for speculative decoding
+adapter = "adapters/mack"                   # loaded only if adapters/mack/SHIP.json says the eval gate passed
+
+[generation]
+max_tokens = 1024
+temperature = 0.7
+top_p = 0.8
+top_k = 20
+enable_thinking = false
+speculative = "auto"        # auto = only if Phase 0 measured a real speedup; "on" | "off"
+num_draft_tokens = 3
+
+[context]
+budget_tokens = 8192        # live context ceiling; Phase 0 lowers it if memory headroom requires
+high_water = 0.85           # compact when the live context passes this fraction of the budget (rare, big steps)
+recent_fraction = 0.25      # share of the budget kept as verbatim recent turns
+pin_fraction = 0.10         # share for exact-quote pins (numbers, names, decisions)
+summary_fraction = 0.08     # share for the verified summary of older turns
+prefill_step = 512
+# kv_bits is deliberately absent: the KV cache stays fp16 (quantizing it raised peak memory, F28).
+
+[recall]
+enabled = true
+max_tokens = 600
+top_k = 3
+
+[governor]
+cpu_slowdown_target = 0.20  # max fractional slowdown Mack may impose on CPU work, on the ruler below
+min_tps = 4.0               # the rate cap never goes below this
+protect = "when_busy"       # "when_busy" throttles only while other work is running; "always" | "never"
+busy_duty = 0.25            # other-process CPU duty (in P-core units) above which the rate cap applies
+sync_duty = 0.60            # fallback when uncalibrated: above this duty, use the synchronous decode loop
+ruler = "triad"             # which measured slowdown the target applies to: "triad" (memory-bound work, worst case) or "compute"
+
+[batch]
+max_file_kb = 200           # larger files are skipped at enqueue
+max_input_tokens = 6000     # longer files reach the model as head + tail
+max_output_tokens = 512
+battery_pause_below = 25    # percent, on battery
+battery_resume_at = 30
+
+[background]
+# The auto pace: fast while you're away, gentle while you're busy, paused when it would hurt.
+away_after_s = 60           # no keyboard/mouse this long (and little else running) → full speed
+away_max_duty = 0.15
+busy_duty = 0.35            # your other apps using ~1.4 cores or more → gentle (one busy browser tab is not "busy")
+hold_duty = 0.90            # most performance cores busy (a build, an export) → pause
+active_chunk = 128          # shorter GPU bursts while you're at the Mac
+active_watts = 3.0          # extra power while you use the Mac (about one busy browser tab)
+busy_watts = 1.5            # extra power while your apps are busy
+away_battery_watts = 6.0    # away but on battery; away on power is uncapped
+unload_after_idle_s = 300   # free the model's ~3 GB after 5 minutes with nothing to do
+
+[pace]
+# The contract `mack bench` checks: max slowdown of memory-heavy CPU work per pace.
+gentle_max_slowdown = 0.15
+balanced_max_slowdown = 0.25
+steady_max_slowdown = 0.30
+# gentle_tps = 2.3          # uncomment to override a calibrated rate
+gentle_watts = 1.5          # average extra power per fixed pace
+balanced_watts = 3.0
+steady_watts = 6.0
+
+[paths]
+state = "state"

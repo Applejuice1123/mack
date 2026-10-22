@@ -1,0 +1,17 @@
+name: rename
+description: Read invoices, receipts, letters and screenshots (OCR for PDFs and images) and rename them "YYYY-MM-DD source title.ext".
+glob: "**/*.pdf,**/*.png,**/*.jpg,**/*.jpeg,**/*.heic,**/*.txt,**/*.md"
+ocr: true
+instruction: |
+  Identify this document. Give the date written on it, who issued or sent it, what kind of document it is,
+  and a short title of at most six words.
+schema:
+  type: object
+  properties:
+    date: {type: string, format: date, x-grounded: true, description: "the date written on the document"}
+    source: {type: string, x-grounded: true, maxLength: 60, description: "the company or person who issued or sent it"}
+    kind: {enum: [invoice, receipt, letter, statement, screenshot, note, other]}
+    title: {type: string, maxLength: 60, description: "at most six words"}
+apply:
+  kind: rename
+  pattern: "{date} {source} {title}"

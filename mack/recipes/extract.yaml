@@ -1,0 +1,11 @@
+name: extract
+description: Pull the fields of your own schema (--schema FILE) out of every file; JSON beside each file, or rows in a CSV with --csv.
+glob: "**/*.md,**/*.txt"
+instruction: |
+  Extract the requested fields from this file.
+schema: null
+default_grounded: true
+apply:
+  kind: sidecar
+  suffix: .json
+  template: json

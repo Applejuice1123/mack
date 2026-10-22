@@ -1,0 +1,15 @@
+name: summarize
+description: A short summary plus up to five key points, each backed by a verified quote; written to a .summary.md file beside the original.
+glob: "**/*.md,**/*.txt"
+instruction: |
+  Summarize this file in at most 60 words.
+  Then list up to five key points it makes, each with the exact words from the file that support it.
+schema:
+  type: object
+  properties:
+    summary: {type: string, maxLength: 480, description: "at most 60 words"}
+    key_points: {type: array, maxItems: 5, x-quote: true}
+apply:
+  kind: sidecar
+  suffix: .summary.md
+  template: summary

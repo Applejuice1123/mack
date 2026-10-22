@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mack",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": ["-m", "mack.cli", "serve", "--port", "8082"],
+      "port": 8082
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+state/
+data/lora/
+adapters/*/*.safetensors
+.DS_Store
+output/
+reports/model_results.json
+app/Mack.app/
+*.mack-tmp
+*.jsonl.tmp

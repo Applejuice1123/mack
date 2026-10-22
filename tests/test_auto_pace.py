@@ -319,3 +319,16 @@ def test_waits_for_memory_before_loading_the_model(tmp_path, monkeypatch):
     t = store.load(task.id)
     assert t.status == "done" and clock() - start >= 120
     assert any("waiting for memory" in line for line in t.log)
+
+
+def test_long_absence_ignores_a_busy_background_tab_but_not_heavy_work(tmp_path, monkeypatch):
+    mac = Mac(monkeypatch, idle=120, duty=0.30)  # a tab keeps a core busy
+    p, clock = pacer(tmp_path, mac)
+    clock.advance(2)
+    assert p.current().level == "active"  # away for two minutes: still polite
+    mac.idle = 900
+    clock.advance(2)
+    assert p.current().level == "away"  # gone 15 minutes: get on with it
+    mac.duty = 0.70  # a real render running while you are away
+    clock.advance(2)
+    assert p.current().level == "busy"

@@ -102,7 +102,11 @@ class Pacer:
         if duty >= hold_at:
             return PaceState(0.0, "hold", "paused: your Mac is under heavy load", small)
 
-        away = idle >= b.away_after_s and duty < b.away_max_duty
+        # Away: no input for a minute and other apps quiet, or no input for 10 minutes and
+        # nothing heavy running. A browser tab that keeps a core busy while you are gone
+        # is not work you are waiting on; a render or a build is.
+        away = (idle >= b.away_after_s and duty < b.away_max_duty) or (
+            idle >= b.long_away_after_s and duty < b.long_away_max_duty)
         if self.pace == "auto":
             if away:
                 level, pace = "away", ("steady" if power.on_battery else "full")

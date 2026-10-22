@@ -187,3 +187,77 @@ startup (3.3 and 3.6 GB available, 5.0 needed).
 
 **What this means for speed:** while someone is actively working, Mack does about 1–1.5 files a minute;
 a 150-note tagging job takes about two hours of active use, or about 22 minutes left alone.
+
+## In-depth stress test while the owner was away (2026-10-22, ~2 h, real 4B, on battery 58% → 25%)
+
+### Hostile files (`scripts/stress_adversarial.py`)
+25 awkward files through the tag recipe, then apply and undo. 12 of 12 checks pass on the real model:
+empty/whitespace/binary/oversized files skipped with reasons; hidden files and folders ignored; a symlinked
+note processed once and a directory symlink loop survived; a file edited after enqueue skipped
+(`changed_since_enqueue`), one deleted after enqueue skipped (`missing`); a 150 KB single-line file
+truncated rather than failed; unicode names and content fine; **prompt injection ignored** (the note
+demanding `{"tags": ["hacked", "admin"]}` got no tags and an accurate grocery-list summary); every byte
+restored by undo.
+
+**Bugs found and fixed**
+- *Windows line endings rewritten.* Frontmatter was merged on newline-translated text, so a CRLF file was
+  written back as LF throughout. Now merged on the raw bytes; new lines use the file's own style. The
+  check now compares everything below the frontmatter byte for byte.
+- *Unclosed frontmatter.* A file starting with `---` that never closes got a second block stacked on top.
+  Now left alone and reported.
+- Non-UTF-8 text is skipped as `not_utf8` with a fix-it message instead of being called binary.
+
+### Crashes and concurrency (`scripts/stress_crash.py`, stub engine)
+- **Kill storm:** 20 SIGKILLs at random moments mid-generation; all 60 files exactly once in the output,
+  max 2 attempts, job done.
+- **Two workers at once (bug, fixed):** two `mack work` processes on one queue processed 2 of 40 files twice
+  and wrote them to the output twice; the heartbeat check was advisory. Now an exclusive `flock` on
+  `state/worker.lock` (released by the kernel even on SIGKILL): the second worker exits with a message,
+  `mack run --wait` follows the existing worker instead of competing, and the server's scheduler does no
+  background work while another process holds the lock. Rerun: 40 files, 40 lines, no duplicates.
+
+### Real-model accuracy (`tests/test_model.py`, 34 min, all 5 pass)
+| test | result |
+|---|---|
+| 30 invoices, vendor/date/amount grounded | 26 right, 4 flagged (ambiguous dates), **0 wrong unflagged** |
+| E2E-5, never answer from memory (France, Microsoft, Einstein… named without facts) | **20 of 20 null**; the model returned null itself every time, nothing leaked |
+| Phase 5, five recipes on 40 mixed files | tag 15/15 (0 off-list tags), summarize 15/15, clean 5/5, rename 18 done + 2 blanks skipped (7 of 8 invoice dates right, 0 wrong), extract 4/4 (it only reads .md/.txt unless `--ocr`) |
+| E2E-2, apply + undo on 30 notes | all 30 restored byte for byte |
+| E2E-3, rename inbox | blanks skipped, 0 wrong dates, 11 renames planned |
+
+### `mack bench`, Mac mostly idle (60 s per pace, on battery so `full` ran at `steady`)
+| pace | tok/s measured | memory-heavy slowdown | compute-heavy | added power | contract |
+|---|---:|---:|---:|---:|---|
+| gentle | 2.1 | 5.1% | 4.4% | ~0 W | ≤ 15% ✓ |
+| balanced | 3.8 | 7.9% | 1.2% | +1.7 W | ≤ 25% ✓ |
+| steady | 6.8 | 21.0% | 0.3% | +3.7 W | ≤ 30% ✓ |
+| full (= steady on battery) | 6.8 | 17.7% | 0.4% | +3.3 W | — |
+| auto, an app busy | 2.3 | 6.4% | 0.0% | +1.1 W | — |
+
+Thermal pressure Nominal throughout. Background apps were not fully quiet (a Chrome renderer held one core
+for the whole absence), so the gentle and full rows carry a noise warning.
+
+### Design change: a long absence counts as away
+With the owner gone over an hour, auto spent only 37% of the "nothing else running" bench row at full
+speed, because that background Chrome tab (one core, plus ~0.35 for the Claude app) read as "your apps are
+busy". After `long_away_after_s` (10 min) without input, auto now treats you as away unless other apps use
+more than `long_away_max_duty` (0.6, a render or a build). Test: `test_long_absence_ignores_a_busy_background_tab…`.
+
+### Hour-scale run while away (`scripts/stress_live.py --minutes 35 --notes 300`)
+326 files queued at the auto pace with nobody at the keyboard (input idle the whole run), on battery.
+- Auto ran at its away level (steady, because on battery) whenever it was working: ~3.6 files a minute.
+  rename 18/18 + 2 blanks skipped (7 of 8 invoice dates right, 0 wrong), clean 6/6, tag 34 of 300.
+- **The battery rule fired on its own:** at 25% the tag job paused (`paused: on battery below 25%; resumes at
+  30% or on power`) with no item stuck as running, and stayed paused through the rest of the run, including
+  across the forced worker kill and restart (the new worker saw the battery pause and did not resume).
+  52% of the run was spent paused this way.
+- Memory: the job waited once for room to load the model (2.9 GB available, 5.0 needed) and loaded when
+  memory freed up; swap grew at most 0.11 GB over the run (versus ~2 GB in the earlier run that loaded
+  straight away). Pressure normal 51%, warn 49%, never critical.
+- Whole-Mac power mean 2.2 W, p95 6.8 W; thermal pressure Nominal in all 1,034 samples.
+- No worker errors, no duplicate output lines, no item needed a second attempt.
+
+### Summary of fixes from this stress session
+CRLF line endings preserved; unclosed frontmatter refused; non-UTF-8 text labeled; single-worker lock
+(duplicate processing with two workers); a long absence counts as away despite a busy background tab.
+Earlier the same day: memory release between items, loop detector, memory-aware loading.

@@ -81,6 +81,8 @@ class BackgroundCfg:
     # The auto pace (mack/pacing.py).
     away_after_s: float = 60.0  # no keyboard/mouse this long, and little else running → full speed
     away_max_duty: float = 0.15  # "little else running": other apps below this CPU duty
+    long_away_after_s: float = 600.0  # after this long without input you are away even if a tab keeps a core busy...
+    long_away_max_duty: float = 0.60  # ...unless other apps use more than this (a render, a build)
     busy_duty: float = 0.35  # other apps at or above this duty (~1.4 busy cores) → gentle
     hold_duty: float = 0.90  # at or above this (most performance cores busy) → pause
     active_chunk: int = 128  # prompt-reading chunk while you are present (shorter GPU bursts)

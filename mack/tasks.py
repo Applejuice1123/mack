@@ -454,20 +454,25 @@ def missing_names(path: str, source: str, interfaces: str) -> list[str]:
 
 
 def repeating_tail(text: str) -> Optional[int]:
-    """If generation has started looping, the index where the loop begins."""
+    """If generation has started looping, the index where the loop begins.
+
+    A real loop repeats the same stretch back to back; a transcript or a note that
+    says the same sentence twice does not. So the last 200 characters must already
+    have appeared at least twice before (three times in all), or the last four
+    substantial lines must be identical."""
     if len(text) < 600:
         return None
     tail = text[-200:]
-    first = text.find(tail)
-    if first != -1 and first < len(text) - 200:
-        return first + 200
+    seen, start = [], 0
+    while (i := text.find(tail, start)) != -1 and i < len(text) - 200:
+        seen.append(i)
+        start = i + 1
+    if len(seen) >= 2:
+        return seen[0] + 200
     lines = [ln for ln in text.splitlines() if len(ln.strip()) > 20]
     if len(lines) >= 4 and len(set(lines[-4:])) == 1:
         return text.rfind(lines[-1], 0, text.rfind(lines[-1]))
     return None
-
-
-# ---------------------------------------------------------------- pacing
 
 
 def battery_low(cfg: Optional[Config] = None) -> bool:
@@ -542,15 +547,37 @@ class TaskRunner:
         return self.pace().rate
 
     def _held(self) -> Iterator[float]:
-        """Wait while the pacer says hold. Use as `state = yield from self._held()`."""
+        """Wait while the pacer says hold, or while there is no room to load the model.
+        Use as `state = yield from self._held()`."""
         while True:
             st = self.pace()
-            if st.rate != 0.0:
-                return st
-            self._check()
-            if st.unload and hasattr(self.engine, "unload"):
-                raise Abandon()
-            yield 1.0
+            if st.rate == 0.0:
+                self._check()
+                if st.unload and hasattr(self.engine, "unload"):
+                    raise Abandon()
+                yield 1.0
+                continue
+            if not self._room_to_load():
+                self._check()
+                yield 10.0
+                continue
+            return st
+
+    def _room_to_load(self) -> bool:
+        """Loading ~3 GB of weights onto a Mac that is short of memory pushes your apps into
+        swap. Only load when macOS will still have `load_headroom_gb` available afterwards."""
+        if getattr(self.engine, "loaded", True):
+            return True
+        need = self.engine.weights_gb + self.cfg.background.load_headroom_gb
+        have = system.available_memory_gb()
+        ok = have >= need and system.memory_pressure() < system.MEMORY_CRITICAL
+        note = "" if ok else f"waiting for memory to load the model ({have:.1f} GB available, needs {need:.1f})"
+        if note != self.task.batch.get("pace_note", "") and (note or self.task.batch.get("pace_note", "").startswith("waiting for memory")):
+            self.task.batch["pace_note"] = note
+            if note:
+                self.task.note(note)
+            self._save()
+        return ok
 
     def _free_memory(self) -> Iterator[float]:
         """After Abandon: unload the model and wait until macOS memory pressure eases.
@@ -591,6 +618,7 @@ class TaskRunner:
 
     def _generate(self, system: str, user: str, max_tokens: int, temp: float, live_prefix: str = "") -> Iterator[float]:
         """Paced generation in a fresh context. Use as `text = yield from self._generate(...)`."""
+        yield from self._held()  # before touching the engine: it may need loading
         fmt = self.engine.fmt
         prompt = self.engine.encode(fmt.system(system) + fmt.user(user) + fmt.generation_prompt())
         ctx = self.engine.new_context()

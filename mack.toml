@@ -54,6 +54,7 @@ active_watts = 3.0          # extra power while you use the Mac (about one busy 
 busy_watts = 1.5            # extra power while your apps are busy
 away_battery_watts = 6.0    # away but on battery; away on power is uncapped
 unload_after_idle_s = 300   # free the model's ~3 GB after 5 minutes with nothing to do
+load_headroom_gb = 2.0      # load the model only if this much memory is still available afterwards
 
 [pace]
 # The contract `mack bench` checks: max slowdown of memory-heavy CPU work per pace.

@@ -452,6 +452,21 @@ class LazyEngine:
     def loaded(self) -> bool:
         return self._engine is not None
 
+    @property
+    def weights_gb(self) -> float:
+        """Size of the model's weights, from the files on disk (what loading will take)."""
+        if not hasattr(self, "_weights_gb"):
+            try:
+                from huggingface_hub import snapshot_download
+
+                path = Path(self._cfg.model.main)
+                if not path.exists():
+                    path = Path(snapshot_download(self._cfg.model.main, local_files_only=True))
+                self._weights_gb = sum(f.stat().st_size for f in path.glob("*.safetensors")) / 1e9 or 3.0
+            except Exception:
+                self._weights_gb = 3.0
+        return self._weights_gb
+
     def _get(self):
         if self._engine is None:
             self._engine = make_engine(self._cfg, **self._kwargs)

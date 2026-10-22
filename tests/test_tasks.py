@@ -86,6 +86,9 @@ def test_code_helpers():
 def test_repeating_tail():
     good = " ".join(f"sentence {i} is different." for i in range(100))
     assert repeating_tail(good) is None
+    # a transcript that repeats itself once is not a loop
+    once = good + " We spent most of the time on quarterly planning and the load test. " * 2 + good[:400]
+    assert repeating_tail(once) is None
     loop = good + " " + ("The same thing again and again and again. " * 12)
     cut = repeating_tail(loop)
     assert cut is not None and cut < len(loop)

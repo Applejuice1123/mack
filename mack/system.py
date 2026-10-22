@@ -67,6 +67,16 @@ def memory_pressure() -> int:
         return MEMORY_NORMAL
 
 
+def available_memory_gb() -> float:
+    """Memory macOS can hand out without paging (free + reclaimable), in GB."""
+    try:
+        import psutil
+
+        return psutil.virtual_memory().available / 1e9
+    except Exception:
+        return 99.0
+
+
 def input_idle_seconds() -> float:
     """Seconds since the last keyboard or mouse event, from CoreGraphics."""
     try:

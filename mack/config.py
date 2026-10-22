@@ -89,6 +89,7 @@ class BackgroundCfg:
     busy_watts: float = 1.5
     away_battery_watts: float = 6.0  # away on battery; away on power is uncapped
     unload_after_idle_s: float = 300.0  # free the model's memory after this long with nothing to do
+    load_headroom_gb: float = 2.0  # only load the model if this much memory stays available afterwards
 
 
 @dataclass

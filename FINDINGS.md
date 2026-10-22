@@ -161,3 +161,29 @@ table has clean numbers.
   services and support plan.pdf"; 7 unidentifiable files kept their names. One screenshot that was dated in
   the first run came back undated in the second (the model is more willing to say null), which is the safe
   direction.
+
+## Live stress test while the owner used the Mac (2026-10-22, 30 min, real 4B, on battery)
+
+`scripts/stress_live.py`: 176 files queued at the auto pace (rename 20, clean 6, tag 150), `mack work` as a
+separate process, SIGKILLed and restarted at 15 minutes. The owner was at the keyboard 76% of the time;
+other apps averaged 0.35 of the performance cores (p90 0.64).
+
+| measure | result |
+|---|---|
+| time by level | busy 36%, active 35%, away 12%, hold 5%, between levels/loading 12% |
+| finished | 33 items (rename 18 + 2 skipped blanks, clean 6, tag 7 of 150): ~1.1/min busy, ~1.45/min active |
+| whole-Mac power | mean 1.83 W, p95 4.4 W; thermal pressure Nominal in every sample |
+| memory | pressure warn 47% of samples, critical once (at startup); swap rose ~1.5 GB in the first seconds (job setup: OCR of 14 images/PDFs and the model load) and then stayed flat at 1.4–2.1 GB |
+| durability | after the kill: no duplicate output lines, the interrupted item retried once (max attempts 2) |
+| accuracy | rename: 7 of 8 invoice dates right, 1 left undated, 0 wrong |
+
+**Bug found:** 3 of 6 transcripts failed (`invalid_json`): the loop detector treated a transcript that
+legitimately repeats a sentence as generation stuck in a loop and cut the reply mid-JSON. It now needs the
+last 200 characters to have appeared twice before (three times in all). Rerun on the same six: 6 done.
+
+**Added before the run:** the model is loaded only if macOS will still have `load_headroom_gb` (2 GB)
+available afterwards; otherwise the job waits ("waiting for memory to load the model"). It held twice at
+startup (3.3 and 3.6 GB available, 5.0 needed).
+
+**What this means for speed:** while someone is actively working, Mack does about 1–1.5 files a minute;
+a 150-note tagging job takes about two hours of active use, or about 22 minutes left alone.

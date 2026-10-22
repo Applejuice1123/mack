@@ -187,3 +187,14 @@ def test_rename_titles_do_not_repeat_the_sender_and_unidentifiable_files_keep_th
     changes, notes = plan(store, bstore, task)
     assert [c.new_path.name for c in changes] == ["2026-03-03 Northwind Invoice 7.txt"]
     assert any("memo.txt: name kept" in n for n in notes)
+
+
+def test_frontmatter_keeps_windows_line_endings_and_refuses_unclosed_blocks():
+    crlf = "# Note\r\n\r\nBody line.\r\n"
+    new, _ = merge_frontmatter(crlf, {"tags": ["idea"]})
+    assert new == "---\r\ntags: [idea]\r\n---\r\n" + crlf
+    existing = "---\r\ntitle: X\r\n---\r\nBody\r\n"
+    new, _ = merge_frontmatter(existing, {"tags": ["bug"]})
+    assert new == "---\r\ntitle: X\r\ntags: [bug]\r\n---\r\nBody\r\n"
+    with pytest.raises(ValueError):
+        merge_frontmatter("---\ntitle: never closed\nbody\n", {"tags": ["x"]})

@@ -940,6 +940,38 @@ Write the complete contents of `{unit.title}`: {unit.spec or "as planned"}.{(" I
         yield 0.0
 
 
+class WorkerLock:
+    """Only one process may run background jobs. An exclusive flock on state/worker.lock;
+    the kernel drops it when the process exits, even on SIGKILL, so it cannot go stale."""
+
+    def __init__(self, cfg: Config):
+        self.path = cfg.state_dir / "worker.lock"
+        self._fd: Optional[int] = None
+
+    @property
+    def held(self) -> bool:
+        return self._fd is not None
+
+    def acquire(self) -> bool:
+        if self._fd is not None:
+            return True
+        import fcntl
+
+        fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o644)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            os.close(fd)
+            return False
+        self._fd = fd
+        return True
+
+    def release(self) -> None:
+        if self._fd is not None:
+            os.close(self._fd)
+            self._fd = None
+
+
 class TaskScheduler:
     """Picks the oldest runnable task and advances it one small step per tick."""
 
@@ -950,9 +982,12 @@ class TaskScheduler:
         self._steps: Optional[Iterator[float]] = None
         self._bstore = None
         self._last_beat = 0.0
+        self.lock = WorkerLock(cfg)
 
     def tick(self) -> Optional[float]:
         """Seconds to wait before the next tick, or None when there is nothing to do."""
+        if not self.lock.acquire():
+            return None  # another process is the worker; it will run the queue
         self._heartbeat()
         if self._steps is None:
             task = self.store.next_runnable(self.cfg)

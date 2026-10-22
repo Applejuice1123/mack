@@ -76,6 +76,7 @@ class StubEngine:
         self.responder = responder or _env_responder() or echo_first_words
         self.clock, self.tps, self.prefill_tps = clock, tps, prefill_tps
         self.calls: list[dict] = []  # what each generate() saw, for assertions
+        self.delay = float(os.environ.get("MACK_STUB_DELAY", "0"))  # real seconds per token (crash tests)
 
     def _id(self, piece: str) -> int:
         if piece not in self.ids:
@@ -130,6 +131,10 @@ class StubEngine:
                     break
                 if self.clock is not None:
                     self.clock.advance(1.0 / self.tps)
+                elif self.delay:
+                    import time
+
+                    time.sleep(self.delay)
                 ctx.tokens.append(tok)
                 n += 1
                 if stats is not None:

@@ -67,7 +67,11 @@ def merge_frontmatter(text: str, values: dict, overwrite: bool = False) -> tuple
         flow = None if isinstance(v, list) else False
         return yaml.safe_dump({k: v}, default_flow_style=flow, allow_unicode=True, sort_keys=False, width=10**6)
 
-    m = re.match(r"\A---[ \t]*\n(.*?)(^---[ \t]*$\n?)", text, re.S | re.M)
+    # Keep the file's own line endings: a Windows file stays CRLF, only new lines are added.
+    nl = "\r\n" if "\r\n" in text[:4096] else "\n"
+    m = re.match(r"\A---[ \t]*\r?\n(.*?)(^---[ \t]*\r?$(?:\r?\n)?)", text, re.S | re.M)
+    if not m and re.match(r"\A---[ \t]*\r?\n", text):
+        raise ValueError("frontmatter starts with --- but is never closed")
     if m:
         block = m.group(1)
         try:
@@ -89,13 +93,13 @@ def merge_frontmatter(text: str, values: dict, overwrite: bool = False) -> tuple
         if not written:
             return text, []
         if block and not block.endswith("\n"):
-            block += "\n"
-        return text[: m.start(1)] + block + add + text[m.start(2):], written
+            block += nl
+        return text[: m.start(1)] + block + add.replace("\n", nl) + text[m.start(2):], written
     written = [k for k, v in values.items() if v not in (None, [], "")]
     if not written:
         return text, []
     front = "".join(lines_for(k, values[k]) for k in written)
-    return f"---\n{front}---\n" + text, written
+    return f"---\n{front}---\n".replace("\n", nl) + text, written
 
 
 def _drop_key(block: str, key: str) -> str:
@@ -193,7 +197,7 @@ def plan(store: TaskStore, bstore, task: Task, only: str = "done", overwrite: bo
         kind = rule["kind"]
         if kind == "frontmatter":
             try:
-                text = path.read_text()
+                text = path.read_bytes().decode("utf-8")  # bytes as they are: no newline translation
                 fields = {k: out.get(k) for k in rule.get("fields", out.keys())}
                 new, written = merge_frontmatter(text, fields, overwrite)
             except (ValueError, OSError) as e:

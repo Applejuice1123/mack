@@ -179,6 +179,10 @@ def cmd_work(args) -> int:
     governor = Governor(cfg)
     governor.start()
     scheduler = TaskScheduler(engine, cfg, TaskStore(cfg), governor=governor)
+    if not scheduler.lock.acquire():
+        print("mack: another Mack worker is already running (the menu-bar app, `mack serve` or `mack work`); "
+              "it will process the queue", file=sys.stderr)
+        return 1
     print("working through queued tasks; Ctrl-C to stop (progress is saved after every unit)", file=sys.stderr)
     last = None
     last_work = time.monotonic()

@@ -199,3 +199,23 @@ def test_scheduler_runs_oldest_first_and_paces(tmp_path):
         time.sleep(w)  # the worker honours the wait (or serves a request in the meantime)
     gaps = [w for w in waits if w > 0]
     assert gaps and 0.005 < sum(gaps) / len(gaps) <= 0.021
+
+
+def test_only_one_worker_lock_at_a_time(tmp_path):
+    from mack.tasks import WorkerLock
+
+    cfg = Config()
+    cfg.paths.state = str(tmp_path / "state")
+    a, b = WorkerLock(cfg), WorkerLock(cfg)
+    assert a.acquire() and not b.acquire()
+    a.release()
+    assert b.acquire()
+    b.release()
+
+
+def test_second_scheduler_does_no_work(tmp_path):
+    cfg, store, task, engine = make(tmp_path, [REPORT_PLAN])
+    first, second = TaskScheduler(engine, cfg, store), TaskScheduler(engine, cfg, store)
+    assert first.tick() is not None
+    assert second.tick() is None and second.active() is None
+    first.lock.release()

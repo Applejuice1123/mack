@@ -88,8 +88,10 @@ def read_text(path: Path, max_bytes: int, ocr: bool) -> tuple[Optional[str], Opt
     if size > max_bytes:
         return None, f"too_large: {size / 1e6:.1f} MB, limit {max_bytes // 1024} KB"
     data = path.read_bytes()
-    if looks_binary(data[:8192]):
+    if b"\x00" in data[:8192]:
         return None, "binary: not a text file"
+    if looks_binary(data[:8192]):
+        return None, "not_utf8: text in another encoding; re-save it as UTF-8 to include it"
     text = data.decode("utf-8", errors="replace")
     if not text.strip():
         return None, "empty"

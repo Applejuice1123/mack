@@ -144,6 +144,12 @@ def _run_here(cfg, store, bstore, job_id) -> int:
     from .engine import LazyEngine, ModelMissing
     from .governor import Governor, set_thread_user_initiated
 
+    from .tasks import WorkerLock
+
+    lock = WorkerLock(cfg)
+    if not lock.acquire():  # someone else is the worker: follow it instead of competing
+        print("another Mack worker is running; following its progress")
+        return _attach(cfg, store, bstore, job_id)
     set_thread_user_initiated()
     engine = LazyEngine(cfg, load_draft=False)
     try:

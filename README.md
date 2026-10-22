@@ -105,6 +105,69 @@ is often wrong at open-ended work, so Mack does not try:
 | macOS reports serious heat | rests 60 seconds, then checks again |
 | nothing to do for 5 minutes, or memory critical | unloads the model (~3 GB) until there is work again |
 
+## The research behind it
+
+Mack's design comes from measurements on a base M4 MacBook Air (16 GB). The
+numbers below are the ones that shaped the code.
+
+### Memory contention on unified memory
+
+On Apple Silicon the CPU and GPU share one pool of memory and one memory bus, so
+a model generating text competes with every app you have open.
+
+- **Generation is a memory-bandwidth load.** Uncapped, it slowed memory-heavy CPU
+  work (a STREAM-triad probe) by about 45% and compute-heavy work by under 2%. The
+  slowdown rises roughly in step with the token rate: about 12% at 5.4 tok/s and
+  22% at 10.6 tok/s. Mack's paces are the rates that keep it near 5%, 10% and 20%.
+- **It cuts both ways.** One foreground memory-heavy thread slowed generation from
+  36 to 29 tok/s.
+- **Reading a prompt heats the Mac; writing slows your apps.** Run continuously,
+  prompt reading drew about 16 W extra but slowed memory-heavy apps by only 12%.
+  Generation drew about 7.6 W and slowed them by 38%. So Mack caps generation by
+  token rate, and caps both by an average power budget.
+- **The decode loop matters.** On a 3B model, a synchronous loop left the GPU idle about 4.8% of
+  every token; keeping one token in flight cut that to 0.2%. llama.cpp's own loop
+  idled the GPU 1.8% but spent about 58% more energy per token than the pipelined
+  MLX loop. Mack runs on MLX, and uses the lower-energy synchronous loop for
+  background work.
+- **Background priority backfires.** Running at macOS background QoS put the
+  submitting thread on the efficiency cores and slowed decoding by roughly 12–14
+  percentage points. Mack never does it.
+- **Memory limits.** The GPU's working-set limit measured 11.45 GB, 66.7% of RAM
+  rather than the commonly quoted 75%. Quantizing the KV cache to save memory
+  raised peak memory during prefill instead (by about 4 GB at 24K tokens), so
+  Mack keeps it at fp16.
+- **Measuring it honestly.** Two instrument problems were found and fixed. A single
+  probe burst after an idle moment measured the CPU's clock ramping up, not
+  contention; Mack uses the second of two back-to-back bursts. At default
+  priority the probe sometimes landed on an efficiency core; it now runs at
+  foreground priority.
+
+Method and raw tables: [docs/measurements.md](docs/measurements.md), [FINDINGS.md](FINDINGS.md).
+
+### From token eviction to compaction
+
+The first prototype was a llama.cpp fork running Gemma-3-4B on Metal. It pulled
+attention scores out of the flash-attention kernel, and every 10 tokens it deleted
+the KV-cache entry the model was paying least attention to, so long conversations
+stayed small.
+
+The current model, Qwen3.5, is a hybrid. Only 8 of its 32 layers keep a KV cache;
+the other 24 are Gated DeltaNet layers that carry a recurrent state and cannot be
+trimmed. Deleting attention entries while the recurrent state still remembers those
+tokens would put the model in a state it never saw in training. So Mack replaced
+eviction with **compaction**: when the context fills, it rebuilds it from
+
+- exact quotes of numbers, names and decisions,
+- a summary in which every line is checked against the original and dropped if
+  unsupported, and
+- the most recent turns, word for word.
+
+Originals go to an on-disk SQLite full-text index and are recalled when you refer
+back to them. The same idea, never trusting the model's own account and checking it
+mechanically against the source, became `mack run`'s grounding checks.
+Details: [docs/explainer.md](docs/explainer.md).
+
 ## Commands
 
 `mack run`, `mack status [job]`, `mack review job`, `mack apply job [--dry-run] [--only done+flagged]`,

@@ -66,45 +66,6 @@ mack work &                                  # or open the menu-bar app, which s
 mack run --recipe tag ~/Notes                # auto pace; returns immediately; `mack status` shows progress
 ```
 
-## Recipes
-
-| recipe | what it does | apply |
-|---|---|---|
-| `tag` | picks up to 3 tags from your list (`--option tags=work,home,idea`) and writes a one-line summary | merged into YAML frontmatter; existing keys are kept |
-| `summarize` | a 60-word summary and up to 5 key points, each with a quote verified against the file | writes `name.summary.md` beside the file |
-| `rename` | reads invoices, receipts, letters and screenshots (OCR for PDFs and images) | renames to `YYYY-MM-DD source title.ext` |
-| `extract` | pulls the fields of your JSON Schema out of each file | writes `name.json`, or rows in a CSV with `--csv` |
-| `clean` | removes filler words and false starts from transcripts and lists action items | writes `name.clean.md`; never edits the original |
-
-`mack recipes` lists them; copy one into `~/MACK/recipes/` to change it. See [docs/recipes.md](docs/recipes.md).
-Without a recipe: `mack run "List every person mentioned" ~/Notes`.
-
-## What Mack will not do
-
-Mack is built for narrow jobs where every answer can be checked against one file. A 4B model
-is often wrong at open-ended work, so Mack does not try:
-
-- It will not write a report or anything longer than its schema allows.
-- It will not answer from memory. A field it cannot find in the file comes back empty and flagged.
-- It will not run your code.
-- It will not change a file before you review and `mack apply`, and it will not apply flagged results unless you ask.
-
-## The three guarantees, and the tests that prove them
-
-1. **Grounded**: outputs that cannot be traced to their file are removed and flagged. [tests/test_grounding.py](tests/test_grounding.py)
-2. **Polite**: each pace holds its token rate, prompt reading included, pauses on low battery and heat, and never runs at background priority. [tests/test_pace.py](tests/test_pace.py)
-3. **Durable and reversible**: progress survives kill, quit and reboot, and every apply has an undo written to disk first. [tests/test_batch_resume.py](tests/test_batch_resume.py), [tests/test_cli_batch.py](tests/test_cli_batch.py)
-
-## Pace, battery and heat
-
-| situation | what Mack does |
-|---|---|
-| any pace | prompt reading and generation share a power budget; generation uses the lower-energy decode loop; short GPU bursts while you're present |
-| on battery, `full` | runs at `steady` instead |
-| battery below 25% | pauses with the current file put back in the queue; resumes at 30% or on power |
-| macOS reports serious heat | rests 60 seconds, then checks again |
-| nothing to do for 5 minutes, or memory critical | unloads the model (~3 GB) until there is work again |
-
 ## The research behind it
 
 Mack's design comes from measurements on a base M4 MacBook Air (16 GB). The
@@ -167,6 +128,45 @@ Originals go to an on-disk SQLite full-text index and are recalled when you refe
 back to them. The same idea, never trusting the model's own account and checking it
 mechanically against the source, became `mack run`'s grounding checks.
 Details: [docs/explainer.md](docs/explainer.md).
+
+## Recipes
+
+| recipe | what it does | apply |
+|---|---|---|
+| `tag` | picks up to 3 tags from your list (`--option tags=work,home,idea`) and writes a one-line summary | merged into YAML frontmatter; existing keys are kept |
+| `summarize` | a 60-word summary and up to 5 key points, each with a quote verified against the file | writes `name.summary.md` beside the file |
+| `rename` | reads invoices, receipts, letters and screenshots (OCR for PDFs and images) | renames to `YYYY-MM-DD source title.ext` |
+| `extract` | pulls the fields of your JSON Schema out of each file | writes `name.json`, or rows in a CSV with `--csv` |
+| `clean` | removes filler words and false starts from transcripts and lists action items | writes `name.clean.md`; never edits the original |
+
+`mack recipes` lists them; copy one into `~/MACK/recipes/` to change it. See [docs/recipes.md](docs/recipes.md).
+Without a recipe: `mack run "List every person mentioned" ~/Notes`.
+
+## What Mack will not do
+
+Mack is built for narrow jobs where every answer can be checked against one file. A 4B model
+is often wrong at open-ended work, so Mack does not try:
+
+- It will not write a report or anything longer than its schema allows.
+- It will not answer from memory. A field it cannot find in the file comes back empty and flagged.
+- It will not run your code.
+- It will not change a file before you review and `mack apply`, and it will not apply flagged results unless you ask.
+
+## The three guarantees, and the tests that prove them
+
+1. **Grounded**: outputs that cannot be traced to their file are removed and flagged. [tests/test_grounding.py](tests/test_grounding.py)
+2. **Polite**: each pace holds its token rate, prompt reading included, pauses on low battery and heat, and never runs at background priority. [tests/test_pace.py](tests/test_pace.py)
+3. **Durable and reversible**: progress survives kill, quit and reboot, and every apply has an undo written to disk first. [tests/test_batch_resume.py](tests/test_batch_resume.py), [tests/test_cli_batch.py](tests/test_cli_batch.py)
+
+## Pace, battery and heat
+
+| situation | what Mack does |
+|---|---|
+| any pace | prompt reading and generation share a power budget; generation uses the lower-energy decode loop; short GPU bursts while you're present |
+| on battery, `full` | runs at `steady` instead |
+| battery below 25% | pauses with the current file put back in the queue; resumes at 30% or on power |
+| macOS reports serious heat | rests 60 seconds, then checks again |
+| nothing to do for 5 minutes, or memory critical | unloads the model (~3 GB) until there is work again |
 
 ## Commands
 

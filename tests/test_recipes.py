@@ -167,3 +167,23 @@ def test_bad_recipe_files_are_rejected(tmp_path):
     p.write_text("name: bad\ninstruction: x\napply: {kind: none}\nsurprise: 1\n")
     with pytest.raises(RecipeError):
         load(p)
+
+
+def test_rename_titles_do_not_repeat_the_sender_and_unidentifiable_files_keep_their_names(tmp_path):
+    from mack.apply import clean_title
+
+    assert clean_title("Invoice #1000 from Northwind Traders", "Northwind Traders", "2025-10-11") == "Invoice 1000"
+    assert clean_title("Order confirmed Adventure Works", "Adventure Works", "") == "Order confirmed"
+    assert clean_title("Flight BY 221", "Blue Yonder Airlines", "") == "Flight BY 221"
+    files = {"inv.txt": "Vendor: Northwind\nDate: 2026-03-03\n", "memo.txt": "Remember to call Leila.\n"}
+
+    def reply(p):
+        t = file_text(p)
+        if "Vendor" in t:
+            return json.dumps({"date": "2026-03-03", "source": "Northwind", "kind": "invoice", "title": "Invoice #7 from Northwind"})
+        return json.dumps({"date": None, "source": None, "kind": "note", "title": "Call Leila"})
+
+    cfg, store, bstore, task, folder = job_from_recipe(tmp_path, "rename", files, reply)
+    changes, notes = plan(store, bstore, task)
+    assert [c.new_path.name for c in changes] == ["2026-03-03 Northwind Invoice 7.txt"]
+    assert any("memo.txt: name kept" in n for n in notes)

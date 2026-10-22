@@ -553,11 +553,18 @@ class TaskRunner:
             yield 1.0
 
     def _free_memory(self) -> Iterator[float]:
-        """After Abandon: unload the model and wait until macOS memory pressure eases."""
+        """After Abandon: unload the model and wait until macOS memory pressure eases.
+
+        Waits at least a minute, doubling on each repeat (up to 10 minutes), so that a
+        model whose own loading tips the Mac into critical pressure does not thrash
+        between loading and unloading."""
         self.engine.unload()
-        self.task.note("freed the model's memory: macOS reported critical memory pressure")
+        self._memory_events = getattr(self, "_memory_events", 0) + 1
+        wait = min(60.0 * 2 ** (self._memory_events - 1), 600.0)
+        self.task.note(f"freed the model's memory: macOS reported critical memory pressure; retrying in {wait:.0f} s or later")
         self._save()
-        while self.pace().unload:
+        until = self.clock() + wait
+        while self.clock() < until or self.pace().unload:
             self._check()
             yield 5.0
 

@@ -1,17 +1,19 @@
 name: rename
-description: Read invoices, receipts, letters and screenshots (OCR for PDFs and images) and rename them "YYYY-MM-DD source title.ext".
+description: Read invoices, receipts, letters and screenshots (OCR for PDFs and images) and rename them "YYYY-MM-DD source title.ext"; files with no date or sender keep their names.
 glob: "**/*.pdf,**/*.png,**/*.jpg,**/*.jpeg,**/*.heic,**/*.txt,**/*.md"
 ocr: true
 instruction: |
   Identify this document. Give the date written on it, who issued or sent it, what kind of document it is,
-  and a short title of at most six words.
+  and a short title of at most six words that says what it is about. The title must not repeat the sender
+  or the date, because those are already in the file name. Use null for the date or sender if the document
+  does not show one.
 schema:
   type: object
   properties:
     date: {type: string, format: date, x-grounded: true, description: "the date written on the document"}
     source: {type: string, x-grounded: true, maxLength: 60, description: "the company or person who issued or sent it"}
     kind: {enum: [invoice, receipt, letter, statement, screenshot, note, other]}
-    title: {type: string, maxLength: 60, description: "at most six words"}
+    title: {type: string, maxLength: 60, description: "at most six words, without the sender or date"}
 apply:
   kind: rename
   pattern: "{date} {source} {title}"

@@ -2,7 +2,9 @@ name: tag
 description: Pick 1-3 tags from a fixed list and write a one-line summary; merged into the note's frontmatter.
 glob: "**/*.md"
 instruction: |
-  Choose up to three tags from the allowed list that describe this note.
+  Choose the tags from the allowed list that describe what this note is mainly about.
+  Usually that is one tag. Add a second or third only if the note is clearly and substantially about that
+  too; a passing mention of a meeting or a reference is not enough.
   Write a one-sentence summary of what the note is about.
 schema:
   type: object

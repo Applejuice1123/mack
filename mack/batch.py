@@ -378,12 +378,12 @@ class BatchRunner(TaskRunner):
                 row = self.bstore.next_pending(t.id)
                 if row is None:
                     break
-                yield from self._held()
-                self._check()
                 current = row["idx"]
                 t.current = current
                 b["current_path"] = row["path"]
                 try:
+                    yield from self._held()  # inside the try: a memory release can come at any point
+                    self._check()
                     yield from self._process(row)
                     failures_in_row = 0
                 except Abandon:

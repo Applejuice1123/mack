@@ -264,3 +264,23 @@ def test_wordy_free_text_is_trimmed_not_failed():
 
     with pytest.raises(ValueError):
         validate(schema, {"summary": "ok", "vendor": "A very long vendor name"})  # grounded values are never cut
+
+
+def test_memory_release_between_items_does_not_crash_and_backs_off(tmp_path, monkeypatch):
+    clock = FakeClock()
+    mac = Mac(monkeypatch, idle=0, duty=0.0, memory=system.MEMORY_CRITICAL)  # critical before the first item
+    cfg, store, bstore, stub = make_env(tmp_path, responder=lambda p: REPLY, clock=clock)
+    engine = UnloadableStub(stub)
+    write_notes(tmp_path / "vault", 2)
+    task, _ = create(cfg, store, bstore, "x", [str(tmp_path / "vault")], pace="auto")
+    from mack.batch import BatchRunner
+
+    runner = BatchRunner(engine, cfg, store, store.load(task.id), bstore, governor=mac.governor, clock=clock)
+    start = clock()
+    for w in runner.steps():
+        clock.advance(w)
+        if clock() - start > 10:
+            mac.memory = system.MEMORY_WARN
+    t = store.load(task.id)
+    assert t.status == "done", t.error
+    assert engine.unloads == 1 and clock() - start >= 60  # waited at least a minute before reloading

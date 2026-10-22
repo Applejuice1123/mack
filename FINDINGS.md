@@ -139,3 +139,25 @@ summary; over-long free text is now trimmed at a word boundary (grounded values 
 
 Still to do: `mack bench` on a quiet Mac (it now warns when other apps are busy), so the fixed-pace
 table has clean numbers.
+
+## Demo run on generated files (2026-10-22, real 4B, on battery so "full" ran at steady)
+
+31 generated files: 8 notes, an inbox of 20 (8 invoice PDFs, half image-only; 6 screenshots; 4 notes;
+2 blank images), 3 messy transcripts.
+
+- **rename** (20 files, 2 min 39 s): 7 of 8 invoice dates and 8 of 8 vendors exact; the 8th ("20/10/2025",
+  read correctly by OCR) came back with no date rather than a wrong one. Both blank images skipped
+  (`no_text`). Apply then undo restored all 18 names.
+- **tag** (8 notes, 2 min 3 s) and **clean** (3 transcripts, 1 min 13 s): all done, none flagged; clean kept
+  every sentence and quoted each action item from the transcript.
+- **Bug found:** critical memory pressure while the model loaded raised `Abandon` between items, outside
+  the handler, and failed the job. Fixed (the hold check is inside the handler) and the reload now backs
+  off at least 60 s, doubling on repeats, so loading cannot thrash. Test: `test_memory_release_between_items…`.
+- **Quality problems found and fixed:** rename titles repeated the sender ("Invoice #1000 from Northwind
+  Traders" after "Northwind Traders") and plain notes were renamed "undated Note 1"; titles now drop the
+  sender, date and "#", and files with neither a date nor a sender keep their names. Tag used all three
+  slots on nearly every note; the instruction now asks for usually one tag. Rerun on fresh files: 7 of 8
+  notes got one correct tag, 1 got two; renames like "2025-10-11 Northwind Traders Invoice for consulting
+  services and support plan.pdf"; 7 unidentifiable files kept their names. One screenshot that was dated in
+  the first run came back undated in the second (the model is more willing to say null), which is the safe
+  direction.

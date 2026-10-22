@@ -117,11 +117,24 @@ def _drop_key(block: str, key: str) -> str:
 SAFE_NAME = re.compile(r'[\\/:*?"<>|\x00-\x1f]+')
 
 
+def clean_title(title: str, source: str, date: str) -> str:
+    """A filename title that does not repeat what the name already says:
+    "Invoice #1000 from Northwind Traders" with source Northwind Traders → "Invoice 1000"."""
+    t = title or ""
+    for part in (source, date):
+        if part:
+            t = re.sub(re.escape(part), " ", t, flags=re.I)
+    t = re.sub(r"[#№]", "", t)
+    t = re.sub(r"\b(from|by|for|to|on|at)\s*$", "", t.strip(), flags=re.I)  # left dangling after removing the source
+    t = re.sub(r"^\s*(from|by)\b", "", t, flags=re.I)
+    return re.sub(r"\s+", " ", t).strip(" -,.:;")
+
+
 def rename_target(path: Path, out: dict, pattern: str, taken: set) -> Path:
     vals = {
         "date": out.get("date") or "undated",
         "source": out.get("source") or "",
-        "title": out.get("title") or "",
+        "title": clean_title(out.get("title") or "", out.get("source") or "", out.get("date") or ""),
         "kind": out.get("kind") or "",
     }
     stem = pattern.format(**vals)
@@ -190,6 +203,10 @@ def plan(store: TaskStore, bstore, task: Task, only: str = "done", overwrite: bo
                 changes.append(Change("modify", path, data=new.encode(), expect_hash=r["content_hash"],
                                       summary=f"{path}: frontmatter + {', '.join(written)}"))
         elif kind == "rename":
+            if not out.get("date") and not out.get("source"):
+                # Nothing to identify it by: a better name than the one it has is unlikely.
+                notes.append(f"{path.name}: name kept (no date or sender found)")
+                continue
             target = rename_target(path, out, rule.get("pattern", "{date} {source} {title}"), taken)
             if target != path:
                 changes.append(Change("rename", path, new_path=target, expect_hash=r["content_hash"],

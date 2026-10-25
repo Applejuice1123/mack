@@ -207,6 +207,7 @@ Mack came out of a set of measurements on a base M4 MacBook Air.
   attention layers with recurrent ones that can't be trimmed that way, so Mack rebuilds its context
   from exact quotes and summaries that are checked line by line against the original. That
   "never trust, always verify against the source" rule became the grounding checks above.
+  The original prototype is in [prototype/](prototype/).
 
 Built on [MLX](https://github.com/ml-explore/mlx) with Qwen3.5-4B (4-bit).
 

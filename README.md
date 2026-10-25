@@ -25,7 +25,7 @@ power budget. When there is nothing to do, Mack unloads the model and gives its 
 Measured on a base M4 MacBook Air, 16 GB, Qwen3.5-4B-4bit. A real 12-note job while the owner kept
 using the Mac (Chrome busy) finished in 6 minutes with the whole Mac averaging 2.5 W and thermal
 pressure Nominal throughout. Fixed paces (`--pace gentle|balanced|steady|full`) are still available;
-`mack bench` measures all of them on your Mac, see [docs/measurements.md](docs/measurements.md).
+`mack bench` measures all of them on your Mac.
 
 ## Install
 
@@ -104,8 +104,6 @@ a model generating text competes with every app you have open.
   priority the probe sometimes landed on an efficiency core; it now runs at
   foreground priority.
 
-Method and raw tables: [docs/measurements.md](docs/measurements.md), [FINDINGS.md](FINDINGS.md).
-
 ### From token eviction to compaction
 
 The first prototype was a llama.cpp fork running Gemma-3-4B on Metal. It pulled
@@ -127,7 +125,6 @@ eviction with **compaction**: when the context fills, it rebuilds it from
 Originals go to an on-disk SQLite full-text index and are recalled when you refer
 back to them. The same idea, never trusting the model's own account and checking it
 mechanically against the source, became `mack run`'s grounding checks.
-Details: [docs/explainer.md](docs/explainer.md).
 
 ## Recipes
 
@@ -152,11 +149,11 @@ is often wrong at open-ended work, so Mack does not try:
 - It will not run your code.
 - It will not change a file before you review and `mack apply`, and it will not apply flagged results unless you ask.
 
-## The three guarantees, and the tests that prove them
+## The three guarantees
 
-1. **Grounded**: outputs that cannot be traced to their file are removed and flagged. [tests/test_grounding.py](tests/test_grounding.py)
-2. **Polite**: each pace holds its token rate, prompt reading included, pauses on low battery and heat, and never runs at background priority. [tests/test_pace.py](tests/test_pace.py)
-3. **Durable and reversible**: progress survives kill, quit and reboot, and every apply has an undo written to disk first. [tests/test_batch_resume.py](tests/test_batch_resume.py), [tests/test_cli_batch.py](tests/test_cli_batch.py)
+1. **Grounded**: outputs that cannot be traced to their file are removed and flagged.
+2. **Polite**: each pace holds its token rate, prompt reading included, pauses on low battery and heat, and never runs at background priority.
+3. **Durable and reversible**: progress survives kill, quit and reboot, and every apply has an undo written to disk first.
 
 ## Pace, battery and heat
 
@@ -180,8 +177,6 @@ Job ids accept a unique prefix or `last`. Exit codes: 0 ok, 1 your input, 2 engi
 - **Screen explainer**: a menu-bar app that explains text you drag a box over.
 - **Long tasks** (`mack task add`): multi-section reports and small codebases. A 4B model makes factual errors at this, so it is not the headline.
 - **Menu-bar app** (`app/build.sh`): shows job progress. It is not part of this release and is unverified.
-
-Design notes: [SPEC.md](SPEC.md). Contributing: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

@@ -18,6 +18,7 @@ main cache has consumed.
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -420,9 +421,9 @@ class ModelMissing(RuntimeError):
 
 def make_engine(cfg: Config, **kwargs):
     """The real MLX engine, or the stub when MACK_STUB_ENGINE is set (tests, demos)."""
-    from .stub import StubEngine, stub_enabled
+    if os.environ.get("MACK_STUB_ENGINE", "") not in ("", "0"):
+        from .stub import StubEngine  # development only; not part of the published package
 
-    if stub_enabled():
         return StubEngine(cfg)
     try:
         from huggingface_hub import snapshot_download

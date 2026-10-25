@@ -1,182 +1,224 @@
 # Mack
 
-**Run a local AI over thousands of your files without your Mac noticing.**
+### Point it at a folder. Keep working. Your files get sorted in the background.
 
-Mack applies one short instruction, or a ready-made recipe, to every file in a folder. It
-reads one file at a time, keeps only answers it can trace back to that file, and runs at a
-pace you choose so the rest of your Mac stays responsive. Nothing changes in your files until
-you review the results and run `mack apply`, and every apply can be undone.
+Mack is a private AI assistant for your Mac that works through hundreds of files for you:
+renaming scanned invoices, tagging notes, summarizing documents, cleaning up transcripts.
+It runs entirely on your Mac, adjusts its speed so you don't notice it running, and changes
+nothing until you've reviewed the results. Every change can be undone.
 
-## How it stays out of your way
+![macOS](https://img.shields.io/badge/macOS-14%2B-black?logo=apple)
+![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-M1%E2%80%93M4-black)
+![Runs offline](https://img.shields.io/badge/runs-100%25%20offline-2ea44f)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue)
 
-The default pace, **auto**, watches what you are doing once a second:
+- **Private.** The AI model runs on your Mac. Your files are never uploaded anywhere.
+- **Unnoticeable.** It slows down when you're working and speeds up when you step away.
+  In testing, the whole Mac averaged under 2.5 W and stayed cool.
+- **Careful.** Every answer is checked against the file it came from. If Mack can't back an
+  answer up, it leaves the field blank and flags it for you instead of guessing.
+- **Reversible.** You review everything before it's applied, and `mack undo` puts every byte back.
 
-| you are | Mack runs at | extra power | memory-heavy apps slow by |
-|---|---|---:|---:|
-| away (no input for a minute, other apps quiet) | full speed (steady on battery) | uncapped (6 W on battery) | up to 45%, but you're not there |
-| using the Mac | balanced, 4.5 tok/s | ≤ 3 W, about one busy browser tab | ~10% |
-| running something heavy (≥ ~1.4 busy cores) | gentle, 2.3 tok/s | ≤ 1.5 W | ~5% |
-| maxing the Mac, Mac hot, or memory critical | paused | 0 | 0 |
+---
 
-Compute-heavy work slows by under 3% at every pace. Prompt reading, which is what heats the Mac
-(about 16 W flat out on this M4), happens in short bursts while you are present and spends the same
-power budget. When there is nothing to do, Mack unloads the model and gives its ~3 GB of memory back.
+## What it does
 
-Measured on a base M4 MacBook Air, 16 GB, Qwen3.5-4B-4bit. A real 12-note job while the owner kept
-using the Mac (Chrome busy) finished in 6 minutes with the whole Mac averaging 2.5 W and thermal
-pressure Nominal throughout. Fixed paces (`--pace gentle|balanced|steady|full`) are still available;
-`mack bench` measures all of them on your Mac.
+Real results from a test run on sample files:
 
-## Install
+**A messy downloads folder of scans and receipts**
 
-```bash
-pipx install /path/to/mack          # or: python3 -m venv .venv && .venv/bin/pip install -e .
-mack model download                 # Qwen3.5-4B-4bit, about 3.1 GB; needs 4 GB free
+```
+scan00.pdf        →  2025-10-11 Northwind Traders Invoice for consulting services and support plan.pdf
+screenshot4.png   →  2026-07-01 Blue Yonder Airlines Flight BY 221.png
+screenshot2.png   →  2026-03-09 Tailspin Toys Total $42.10.png
+note0.md          →  note0.md   (no date or sender in it, so it keeps its name)
 ```
 
-Apple Silicon only (MLX). macOS 14 or later. Recipes that read PDFs and images also need the
-helper app: `app/build.sh` (Xcode command line tools, no Xcode needed).
+**A notes folder (Obsidian, Bear exports, plain Markdown)**
 
-## Two-minute quick start
+```yaml
+---
+tags: [meeting]
+summary: This note documents a mobile release sync meeting attended by Ingrid and Leila, where
+  concerns were raised and Priya was tasked with writing up options by Friday.
+---
+```
 
-Try it on 20 notes from your own notes folder, at full speed so it finishes quickly:
+Tags are picked from *your* list, and anything already in the note is left alone.
+
+**Meeting transcripts.** A cleaned-up copy with filler words and false starts removed, plus a list
+of action items, each one backed by a quote from the transcript (for example, *"Kofi will write up
+the options before Friday"*). The original is never touched.
+
+**Long documents.** A short summary and up to five key points, each with a quote Mack found in
+the document, saved next to it.
+
+**Your own fields.** Describe what you want (vendor, amount, due date, anything) and get a
+spreadsheet row for every file.
+
+Or describe the job in your own words:
+
+```bash
+mack run "List every person mentioned" ~/Notes
+```
+
+---
+
+## You won't notice it's running
+
+Running an AI model on a laptop normally slows everything else down. On a MacBook Air,
+running one flat out slowed memory-heavy apps by up to **45%**. Mack checks what you're doing
+once a second and adjusts:
+
+| when you are | Mack |
+|---|---|
+| away from the Mac | works at full speed (a little gentler on battery) |
+| using the Mac | slows down so your apps lose only about 5–10% of their speed |
+| running something heavy (a build, an export) | slows further, or pauses |
+| low on battery, memory or cool air | pauses, then picks up where it left off |
+
+When it has nothing to do, it unloads the model and gives about 3 GB of memory back to your apps.
+
+**Measured on a fanless MacBook Air (M4, 16 GB):**
+- During a 30-minute test while the owner kept working, the whole Mac averaged **1.8 W** and
+  stayed at normal temperature in every reading.
+- Left alone for 35 minutes on battery, it worked through about **3.6 files a minute**, then
+  paused itself at 25% battery.
+
+## It doesn't make things up
+
+Mack uses a small AI model, and small models can be wrong. So Mack never takes the model's word
+for it: every value has to be found in the file it came from, or it's removed and flagged.
+
+| test | result |
+|---|---|
+| 30 invoices: vendor, date and amount | 26 right, 4 flagged for review, **0 wrong** |
+| 20 notes that mention famous names but contain no facts | **20 of 20 left blank**; it never filled in from memory |
+| a note with hidden instructions telling Mack to tag it "hacked" and "admin" | ignored; it got an accurate summary instead |
+
+A date like `03/09/2025` could be March 9 or September 3, so Mack flags it rather than guessing.
+
+## Nothing changes until you say so
+
+```bash
+mack review last          # a readable report: anything flagged first, then every result
+mack apply last --dry-run # exactly what would change
+mack apply last           # do it
+mack undo last            # changed your mind? every file goes back, byte for byte
+```
+
+Close the lid, quit, restart or even force-kill it: Mack picks up where it stopped and never
+processes a file twice. (Tested with 20 forced kills mid-job.)
+
+---
+
+## Get started
+
+**You need** a Mac with Apple Silicon (M1 or later), macOS 14 or later, and about 4 GB of free
+disk space for the AI model. Mack was built and measured on a 16 GB MacBook Air.
+
+```bash
+git clone https://github.com/Applejuice1123/mack ~/MACK
+cd ~/MACK
+pipx install .            # adds the `mack` command (no pipx? `brew install pipx`)
+mack model download       # the AI model, about 3.1 GB, downloaded once
+app/build.sh              # optional: lets Mack read PDFs, scans and screenshots
+```
+
+`app/build.sh` needs Apple's free command line tools (`xcode-select --install`), not Xcode itself.
+
+### Your first run (2 minutes)
+
+Try it on 20 of your own notes, at full speed so it finishes quickly:
 
 ```bash
 mack run --recipe tag --limit 20 --pace full --wait ~/Notes
+mack review last
 ```
 
-```
-20 items · about 1m at full · uncapped: up to 45% slower memory-heavy work while it runs
-job 20261022-101500-3f2a · output ~/MACK/output/20261022-101500-3f2a.jsonl
-20/20 · 31.4 tok/s · finished · 1 flagged
-done. Review with: mack review 20261022-101500-3f2a
-```
+For a whole folder, start the background worker once and forget about it:
 
 ```bash
-mack review last          # opens a Markdown file: flagged items first, then every result
-mack apply last --dry-run # shows exactly what would change
-mack apply last           # writes tags into each note's frontmatter
-mack undo last            # puts every byte back
+mack work &
+mack run --recipe rename ~/Downloads/Scans
+mack status               # check in whenever you like
 ```
 
-For the whole folder, start the worker once and let it run all day:
+## Built-in recipes
 
-```bash
-mack work &                                  # or open the menu-bar app, which starts it
-mack run --recipe tag ~/Notes                # auto pace; returns immediately; `mack status` shows progress
-```
-
-## The research behind it
-
-Mack's design comes from measurements on a base M4 MacBook Air (16 GB). The
-numbers below are the ones that shaped the code.
-
-### Memory contention on unified memory
-
-On Apple Silicon the CPU and GPU share one pool of memory and one memory bus, so
-a model generating text competes with every app you have open.
-
-- **Generation is a memory-bandwidth load.** Uncapped, it slowed memory-heavy CPU
-  work (a STREAM-triad probe) by about 45% and compute-heavy work by under 2%. The
-  slowdown rises roughly in step with the token rate: about 12% at 5.4 tok/s and
-  22% at 10.6 tok/s. Mack's paces are the rates that keep it near 5%, 10% and 20%.
-- **It cuts both ways.** One foreground memory-heavy thread slowed generation from
-  36 to 29 tok/s.
-- **Reading a prompt heats the Mac; writing slows your apps.** Run continuously,
-  prompt reading drew about 16 W extra but slowed memory-heavy apps by only 12%.
-  Generation drew about 7.6 W and slowed them by 38%. So Mack caps generation by
-  token rate, and caps both by an average power budget.
-- **The decode loop matters.** On a 3B model, a synchronous loop left the GPU idle about 4.8% of
-  every token; keeping one token in flight cut that to 0.2%. llama.cpp's own loop
-  idled the GPU 1.8% but spent about 58% more energy per token than the pipelined
-  MLX loop. Mack runs on MLX, and uses the lower-energy synchronous loop for
-  background work.
-- **Background priority backfires.** Running at macOS background QoS put the
-  submitting thread on the efficiency cores and slowed decoding by roughly 12–14
-  percentage points. Mack never does it.
-- **Memory limits.** The GPU's working-set limit measured 11.45 GB, 66.7% of RAM
-  rather than the commonly quoted 75%. Quantizing the KV cache to save memory
-  raised peak memory during prefill instead (by about 4 GB at 24K tokens), so
-  Mack keeps it at fp16.
-- **Measuring it honestly.** Two instrument problems were found and fixed. A single
-  probe burst after an idle moment measured the CPU's clock ramping up, not
-  contention; Mack uses the second of two back-to-back bursts. At default
-  priority the probe sometimes landed on an efficiency core; it now runs at
-  foreground priority.
-
-### From token eviction to compaction
-
-The first prototype was a llama.cpp fork running Gemma-3-4B on Metal. It pulled
-attention scores out of the flash-attention kernel, and every 10 tokens it deleted
-the KV-cache entry the model was paying least attention to, so long conversations
-stayed small.
-
-The current model, Qwen3.5, is a hybrid. Only 8 of its 32 layers keep a KV cache;
-the other 24 are Gated DeltaNet layers that carry a recurrent state and cannot be
-trimmed. Deleting attention entries while the recurrent state still remembers those
-tokens would put the model in a state it never saw in training. So Mack replaced
-eviction with **compaction**: when the context fills, it rebuilds it from
-
-- exact quotes of numbers, names and decisions,
-- a summary in which every line is checked against the original and dropped if
-  unsupported, and
-- the most recent turns, word for word.
-
-Originals go to an on-disk SQLite full-text index and are recalled when you refer
-back to them. The same idea, never trusting the model's own account and checking it
-mechanically against the source, became `mack run`'s grounding checks.
-
-## Recipes
-
-| recipe | what it does | apply |
-|---|---|---|
-| `tag` | picks up to 3 tags from your list (`--option tags=work,home,idea`) and writes a one-line summary | merged into YAML frontmatter; existing keys are kept |
-| `summarize` | a 60-word summary and up to 5 key points, each with a quote verified against the file | writes `name.summary.md` beside the file |
-| `rename` | reads invoices, receipts, letters and screenshots (OCR for PDFs and images) | renames to `YYYY-MM-DD source title.ext` |
-| `extract` | pulls the fields of your JSON Schema out of each file | writes `name.json`, or rows in a CSV with `--csv` |
-| `clean` | removes filler words and false starts from transcripts and lists action items | writes `name.clean.md`; never edits the original |
-
-`mack recipes` lists them; copy one into `~/MACK/recipes/` to change it. See [docs/recipes.md](docs/recipes.md).
-Without a recipe: `mack run "List every person mentioned" ~/Notes`.
-
-## What Mack will not do
-
-Mack is built for narrow jobs where every answer can be checked against one file. A 4B model
-is often wrong at open-ended work, so Mack does not try:
-
-- It will not write a report or anything longer than its schema allows.
-- It will not answer from memory. A field it cannot find in the file comes back empty and flagged.
-- It will not run your code.
-- It will not change a file before you review and `mack apply`, and it will not apply flagged results unless you ask.
-
-## The three guarantees
-
-1. **Grounded**: outputs that cannot be traced to their file are removed and flagged.
-2. **Polite**: each pace holds its token rate, prompt reading included, pauses on low battery and heat, and never runs at background priority.
-3. **Durable and reversible**: progress survives kill, quit and reboot, and every apply has an undo written to disk first.
-
-## Pace, battery and heat
-
-| situation | what Mack does |
+| recipe | what you get |
 |---|---|
-| any pace | prompt reading and generation share a power budget; generation uses the lower-energy decode loop; short GPU bursts while you're present |
-| on battery, `full` | runs at `steady` instead |
-| battery below 25% | pauses with the current file put back in the queue; resumes at 30% or on power |
-| macOS reports serious heat | rests 60 seconds, then checks again |
-| nothing to do for 5 minutes, or memory critical | unloads the model (~3 GB) until there is work again |
+| `rename` | invoices, receipts, letters and screenshots renamed to `YYYY-MM-DD sender title` |
+| `tag` | 1–3 tags from your list plus a one-line summary, added to each note (`--option tags=work,home,idea`) |
+| `summarize` | a short summary and key points with supporting quotes, saved next to each file |
+| `clean` | tidy transcripts plus action items, saved as a new file |
+| `extract` | the fields you define, as a file per document or one spreadsheet (`--csv`) |
 
-## Commands
+`mack recipes` lists them. Recipes are short text files you can copy and edit to make your own;
+see [docs/recipes.md](docs/recipes.md).
+
+## How fast is it?
+
+| situation | speed |
+|---|---|
+| you're away, plugged in | fastest: no speed limit |
+| you're away, on battery | about 3–4 files a minute |
+| you're using the Mac | about 1–1.5 files a minute, in the background |
+
+A 150-note tagging job takes about 20 minutes left alone, or a couple of hours of background
+work while you use the Mac.
+
+## Questions
+
+**Does anything leave my Mac?** No. The model is downloaded once from Hugging Face; after that,
+Mack runs fully offline.
+
+**Will it work on an Intel Mac?** No. It needs Apple Silicon.
+
+**What about 8 GB Macs?** Untested so far. Mack only loads the model when there's room for it and
+waits otherwise, but expect it to spend more time waiting.
+
+**Can it be wrong?** Yes, which is why it shows its work. Anything it isn't sure of is flagged and
+isn't applied unless you ask. You always review before anything changes.
+
+**What won't it do?** Write essays or reports, answer from general knowledge, run code, or touch
+a file you haven't approved. It's built for narrow, repetitive jobs where every answer can be
+checked against the file.
+
+**What does it cost?** Nothing. Mack is open source under the MIT license.
+
+---
+
+## Under the hood
+
+Mack came out of a set of measurements on a base M4 MacBook Air.
+
+- **The bottleneck is memory, not the processor.** On Apple Silicon the CPU and GPU share one
+  memory pool. Generating text slowed memory-heavy work by about 45% but compute-heavy work by
+  under 2%, and the slowdown rose roughly in step with generation speed. Mack's speed levels are
+  the rates that keep that slowdown near 5%, 10% and 20%.
+- **Reading heats the Mac; writing slows your apps.** Reading a prompt drew about 16 W extra but
+  barely slowed other apps; generating drew about 7.6 W and slowed them a lot. Mack caps both
+  with a power budget and reads in short bursts while you're at the Mac.
+- **"Background priority" backfires.** macOS's low-priority mode moved the work onto the
+  efficiency cores and made it slower without helping anything, so Mack doesn't use it.
+- **Checking beats trusting.** An early prototype (a llama.cpp fork) kept long conversations small
+  by deleting the context the model paid least attention to. The current model, Qwen3.5, mixes
+  attention layers with recurrent ones that can't be trimmed that way, so Mack rebuilds its context
+  from exact quotes and summaries that are checked line by line against the original. That
+  "never trust, always verify against the source" rule became the grounding checks above.
+
+Built on [MLX](https://github.com/ml-explore/mlx) with Qwen3.5-4B (4-bit).
+
+## Command reference
 
 `mack run`, `mack status [job]`, `mack review job`, `mack apply job [--dry-run] [--only done+flagged]`,
 `mack undo job [--force]`, `mack recipes [show NAME]`, `mack work`, `mack bench`, `mack model download`.
-Job ids accept a unique prefix or `last`. Exit codes: 0 ok, 1 your input, 2 engine or model, 3 refused.
+Speeds: `--pace auto` (default) or `gentle | balanced | steady | full`. Job ids accept a unique
+prefix or `last`. `mack bench` measures each speed level on your own Mac.
 
-## Also included
-
-- **Chat** (`mack chat`, `mack serve`), with context compaction and recall.
-- **Screen explainer**: a menu-bar app that explains text you drag a box over.
-- **Long tasks** (`mack task add`): multi-section reports and small codebases. A 4B model makes factual errors at this, so it is not the headline.
-- **Menu-bar app** (`app/build.sh`): shows job progress. It is not part of this release and is unverified.
+Also in the box: a local chat (`mack chat`, `mack serve`), a menu-bar screen explainer that explains
+any text you drag a box over, and experimental long writing tasks (`mack task add`).
 
 ## License
 

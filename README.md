@@ -180,4 +180,4 @@ Job ids accept a unique prefix or `last`. Exit codes: 0 ok, 1 your input, 2 engi
 
 ## License
 
-Not chosen yet (MIT or Apache-2.0).
+MIT. See [LICENSE](LICENSE).

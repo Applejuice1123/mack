@@ -3,6 +3,8 @@ name = "mack"
 version = "0.1.0"
 description = "Run a local AI over thousands of your files without your Mac noticing"
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
     "mlx>=0.32",
     "mlx-lm>=0.32",
@@ -21,7 +23,7 @@ dev = ["pytest"]
 mack = "mack.cli:main"
 
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
